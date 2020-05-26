@@ -24,7 +24,9 @@ def manage_items(request, *args, **kwargs):
     if request.method == "GET":
         items = {}
         count = 0
-        for key in redis_instance.keys("*"):
+        data = redis_instance.keys("*")[:-1]
+        for key in data:
+            print(key)
             items[key.decode("utf-8")] = redis_instance.get(key)
             count = count + 1
         response = {
@@ -40,6 +42,64 @@ def manage_items(request, *args, **kwargs):
         value = item[key]
         redis_instance.set(key, value)
         response = {
-            "msg": "{} successfully set {}"
+            "msg": "{} successfully set {}".format(key, value)
         }
         return Response(response, 201)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def manage_item(request, *args, **kwargs):
+    if request.method == "GET":
+        if kwargs['key']:
+            value = redis_instance.get(kwargs['key'])
+            if value:
+                response = {
+                    'key': kwargs['key'],
+                    'value': value,
+                    'msg': 'success'
+                }
+                return Response(response, status=200)
+            else:
+                response = {
+                    'key': kwargs['key'],
+                    'value': None,
+                    'msg': 'Not found'
+                }
+                return Response(response, status=404)
+
+    elif request.method == 'PUT':
+        if kwargs['key']:
+            request_data = json.loads(request.body)
+            new_value = request_data['new_value']
+            value = redis_instance.get(kwargs['key'])
+            if value:
+                redis_instance.set(kwargs['key'], new_value)
+                response = {
+                    'key': kwargs['key'],
+                    'value': value,
+                    'msg': f"Successfully updated {kwargs['key']}"
+                }
+                return Response(response, status=200)
+            else:
+                response = {
+                    'key': kwargs['key'],
+                    'value': None,
+                    'msg': 'Not found'
+                }
+                return Response(response, status=404)
+
+    elif request.method == 'DELETE':
+        if kwargs['key']:
+            result = redis_instance.delete(kwargs['key'])
+            if result == 1:
+                response = {
+                    'msg': f"{kwargs['key']} successfully deleted"
+                }
+                return Response(response, status=404)
+            else:
+                response = {
+                    'key': kwargs['key'],
+                    'value': None,
+                    'msg': 'Not found'
+                }
+                return Response(response, status=404)
